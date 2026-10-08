@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FTTH Planner Pro - Enterprise Edition</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF & jsPDF-AutoTable CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 antialiased min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-800 border-b border-slate-700/60 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 p-2.5 rounded-xl text-white shadow-lg shadow-brand-500/30">
+                    <i class="fa-solid fa-network-wired text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-wide flex items-center gap-2">
+                        FTTH Planner Pro <span class="bg-brand-500/20 text-brand-400 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-brand-500/30">Rezky Fauzy</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Sistem Manajemen & Perencanaan Jaringan Serat Optik</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleDarkMode()" id="darkModeBtn" class="bg-slate-700/60 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-sm transition flex items-center justify-center w-10 h-10 border border-slate-600/50" title="Ubah Tema">
+                    <i class="fa-solid fa-moon" id="darkModeIcon"></i>
+                </button>
+                <button onclick="exportAllPDF()" class="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm shadow-rose-600/20">
+                    <i class="fa-solid fa-file-pdf text-xs"></i>
+                    <span class="hidden sm:inline">Export PDF Rekap</span>
+                </button>
+                <button onclick="exportJSON()" class="bg-slate-700/60 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 border border-slate-600/50">
+                    <i class="fa-solid fa-download text-xs text-brand-400"></i>
+                    <span class="hidden sm:inline">JSON</span>
+                </button>
+                <label class="bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2 rounded-xl text-sm font-medium transition cursor-pointer flex items-center space-x-2 shadow-sm shadow-brand-600/20">
+                    <i class="fa-solid fa-upload text-xs"></i>
+                    <span class="hidden sm:inline">Import</span>
+                    <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-6">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-slate-700/60 p-4 shrink-0 h-fit">
+            <nav class="space-y-1.5">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-white bg-brand-600 shadow-md shadow-brand-600/20">
+                    <i class="fa-solid fa-chart-pie w-5"></i>
+                    <span>Dashboard Utama</span>
+                </button>
+                <button onclick="switchTab('kabel')" id="nav-kabel" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-wave-square w-5"></i>
+                    <span>Data Kabel</span>
+                </button>
+                <button onclick="switchTab('tiang')" id="nav-tiang" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-grip-lines-vertical w-5"></i>
+                    <span>Data Tiang</span>
+                </button>
+                <button onclick="switchTab('odc')" id="nav-odc" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-server w-5"></i>
+                    <span>Data ODC</span>
+                </button>
+                <button onclick="switchTab('odp')" id="nav-odp" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-box w-5"></i>
+                    <span>Data ODP</span>
+                </button>
+                <button onclick="switchTab('rumah')" id="nav-rumah" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-house w-5"></i>
+                    <span>Data Rumah (Homepass)</span>
+                </button>
+                <button onclick="switchTab('peta')" id="nav-peta" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white">
+                    <i class="fa-solid fa-map-location-dot w-5"></i>
+                    <span>Simulasi Peta Sebaran</span>
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 space-y-6 overflow-hidden">
+
+            <!-- TAB: DASHBOARD -->
+            <div id="tab-dashboard" class="tab-content active space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Ringkasan Perencanaan Jaringan FTTH</h2>
+                    <p class="text-sm text-slate-400">Monitoring real-time metrik infrastruktur kabel, tiang, ODC, ODP, dan homepass.</p>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                        <div class="bg-blue-500/10 text-blue-400 p-3.5 rounded-xl border border-blue-500/20">
+                            <i class="fa-solid fa-wave-square text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Panjang Kabel</p>
+                            <h3 id="stat-kabel" class="text-lg font-bold text-white">0 m</h3>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                        <div class="bg-amber-500/10 text-amber-400 p-3.5 rounded-xl border border-amber-500/20">
+                            <i class="fa-solid fa-grip-lines-vertical text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Total Tiang</p>
+                            <h3 id="stat-tiang" class="text-lg font-bold text-white">0 Unit</h3>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                        <div class="bg-emerald-500/10 text-emerald-400 p-3.5 rounded-xl border border-emerald-500/20">
+                            <i class="fa-solid fa-server text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Total ODC</p>
+                            <h3 id="stat-odc" class="text-lg font-bold text-white">0 Unit</h3>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                        <div class="bg-purple-500/10 text-purple-400 p-3.5 rounded-xl border border-purple-500/20">
+                            <i class="fa-solid fa-box text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Total ODP</p>
+                            <h3 id="stat-odp" class="text-lg font-bold text-white">0 Unit</h3>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                        <div class="bg-rose-500/10 text-rose-400 p-3.5 rounded-xl border border-rose-500/20">
+                            <i class="fa-solid fa-house text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-medium">Total Rumah</p>
+                            <h3 id="stat-rumah" class="text-lg font-bold text-white">0 HP</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-sm lg:col-span-2">
+                        <h3 class="font-bold text-white mb-4 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-brand-400"></i> Komposisi Infrastruktur Jaringan
+                        </h3>
+                        <div class="relative h-64 flex items-center justify-center">
+                            <canvas id="ftthChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-white mb-2 text-sm">Fitur Export PDF Profesional</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                                Anda dapat mengunduh laporan rekapitulasi lengkap dalam format PDF berstandar profesional untuk keperluan dokumentasi proyek FTTH kapan saja.
+                            </p>
+                            <div class="bg-brand-500/10 border border-brand-500/20 p-3 rounded-xl text-xs text-brand-300">
+                                <i class="fa-solid fa-circle-info mr-1"></i> Klik tombol <b>Export PDF Rekap</b> di atas untuk mencetak seluruh laporan.
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-slate-700/60 flex justify-between items-center text-xs text-slate-400">
+                            <span>Status Sinkronisasi</span>
+                            <span class="text-emerald-400 font-semibold flex items-center"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Auto-Saved</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DYNAMIC COMPONENT CONTAINER FOR TABLES (Kabel, Tiang, ODC, ODP, Rumah) -->
+            <div id="dynamic-component-container"></div>
+
+            <!-- TAB: PETA SIMULASI SEBARAN -->
+            <div id="tab-peta" class="tab-content space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Simulasi Sebaran Titik Jaringan</h2>
+                    <p class="text-sm text-slate-400">Visualisasi node koordinat ODC, ODP, Tiang, dan Rumah terencana.</p>
+                </div>
+                <div class="bg-slate-800/80 border border-slate-700/60 p-6 rounded-2xl shadow-sm space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center space-x-4 text-xs font-medium text-slate-300">
+                            <span class="flex items-center"><span class="w-3 h-3 bg-emerald-500 rounded-full inline-block mr-1.5"></span> ODC</span>
+                            <span class="flex items-center"><span class="w-3 h-3 bg-purple-500 rounded-full inline-block mr-1.5"></span> ODP</span>
+                            <span class="flex items-center"><span class="w-3 h-3 bg-amber-500 rounded-full inline-block mr-1.5"></span> Tiang</span>
+                            <span class="flex items-center"><span class="w-3 h-3 bg-rose-500 rounded-full inline-block mr-1.5"></span> Rumah</span>
+                        </div>
+                        <button onclick="renderMapSimulation()" class="bg-slate-700/60 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition border border-slate-600/50">
+                            <i class="fa-solid fa-rotate mr-1"></i> Refresh Sebaran
+                        </button>
+                    </div>
+                    <div id="mock-map" class="w-full h-96 bg-slate-900 rounded-xl relative overflow-hidden border border-slate-700/60 flex items-center justify-center">
+                        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                        <div id="map-pin-container" class="absolute inset-0 p-6 flex flex-wrap gap-4 items-center justify-around overflow-auto">
+                            <!-- Pins injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL FORM UNIVERSAL -->
+    <div id="universal-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <h3 id="modal-title" class="font-bold text-white text-base">Form Input Data</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="universalForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                <div id="modal-fields" class="space-y-4">
+                    <!-- Dynamic fields -->
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-sm font-medium transition">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium transition shadow-sm shadow-brand-600/20">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center space-x-3 text-sm">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-msg">Berhasil menyimpan data!</span>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & PDF EXPORT -->
+    <script>
+        // Initial Database State
+        let db = JSON.parse(localStorage.getItem('ftth_pdf_planning_db')) || {
+            kabel: [
+                { id: '1', jenis: 'Core 24', panjang: '550', lokasi: 'Jl. Jend. Sudirman - Subur' },
+                { id: '2', jenis: 'Drop Cable 2Core', panjang: '120', lokasi: 'Cluster Mawar Blok A' }
+            ],
+            tiang: [
+                { id: '1', kode: 'TGL-001', lokasi: 'Depan Gerbang Utama Cluster' },
+                { id: '2', kode: 'TGL-002', lokasi: 'Perempatan Jl. Melati' }
+            ],
+            odc: [
+                { id: '1', kode: 'ODC-SDR-01', lokasi: 'Taman Sektor Utara' }
+            ],
+            odp: [
+                { id: '1', kode: 'ODP-SDR-01/04', lokasi: 'Tiang TGL-001' },
+                { id: '2', kode: 'ODP-SDR-01/05', lokasi: 'Tiang TGL-002' }
+            ],
+            rumah: [
+                { id: '1', kode: 'HP-001 (Bpk. Joko)', lokasi: 'Jl. Melati No. 12' },
+                { id: '2', kode: 'HP-002 (Ibu Siska)', lokasi: 'Jl. Melati No. 14' }
+            ]
+        };
+
+        let activeTab = 'dashboard';
+        let activeEntity = null;
+        let currentEditingId = null;
+        let chartInstance = null;
+
+        const componentConfig = {
+            kabel: {
+                title: 'Data Perencanaan Kabel',
+                desc: 'Kelola informasi jenis, panjang, dan rute lokasi kabel fiber optik.',
+                icon: 'fa-wave-square',
+                fields: [
+                    { name: 'jenis', label: 'Jenis Kabel', type: 'select', options: ['Core 12', 'Core 24', 'Core 48', 'Core 96', 'Drop Cable 1Core', 'Drop Cable 2Core'] },
+                    { name: 'panjang', label: 'Panjang Kabel (Meter)', type: 'number', placeholder: 'Contoh: 250' },
+                    { name: 'lokasi', label: 'Lokasi / Rute Kabel', type: 'text', placeholder: 'Contoh: Jl. Ahmad Yani - Sudirman' }
+                ],
+                columns: ['Jenis Kabel', 'Panjang (m)', 'Lokasi / Rute']
+            },
+            tiang: {
+                title: 'Data Perencanaan Tiang',
+                desc: 'Kelola kode dan titik lokasi penempatan tiang distribusi.',
+                icon: 'fa-grip-lines-vertical',
+                fields: [
+                    { name: 'kode', label: 'Kode Tiang', type: 'text', placeholder: 'Contoh: TGL-001' },
+                    { name: 'lokasi', label: 'Lokasi Tiang', type: 'text', placeholder: 'Contoh: Depan Kantor Kelurahan' }
+                ],
+                columns: ['Kode Tiang', 'Lokasi Tiang']
+            },
+            odc: {
+                title: 'Data Perencanaan ODC',
+                desc: 'Kelola kode dan titik lokasi Optical Distribution Cabinet utama.',
+                icon: 'fa-server',
+                fields: [
+                    { name: 'kode', label: 'Kode ODC', type: 'text', placeholder: 'Contoh: ODC-BLA-01' },
+                    { name: 'lokasi', label: 'Lokasi ODC', type: 'text', placeholder: 'Contoh: Taman Kota Blok A' }
+                ],
+                columns: ['Kode ODC', 'Lokasi ODC']
+            },
+            odp: {
+                title: 'Data Perencanaan ODP',
+                desc: 'Kelola kode dan lokasi Optical Distribution Point distribusi pelanggan.',
+                icon: 'fa-box',
+                fields: [
+                    { name: 'kode', label: 'Kode ODP', type: 'text', placeholder: 'Contoh: ODP-BLA-01/04' },
+                    { name: 'lokasi', label: 'Lokasi ODP', type: 'text', placeholder: 'Contoh: Tiang Listrik No. 12' }
+                ],
+                columns: ['Kode ODP', 'Lokasi ODP']
+            },
+            rumah: {
+                title: 'Data Perencanaan Rumah (Homepass)',
+                desc: 'Kelola kode pelanggan/rumah dan titik lokasi homepass.',
+                icon: 'fa-house',
+                fields: [
+                    { name: 'kode', label: 'Kode Rumah / Pelanggan', type: 'text', placeholder: 'Contoh: HP-001 (Bpk. Budi)' },
+                    { name: 'lokasi', label: 'Lokasi Rumah', type: 'text', placeholder: 'Contoh: Jl. Mawar No. 45' }
+                ],
+                columns: ['Kode Rumah / Pelanggan', 'Lokasi Rumah']
+            }
+        };
+
+        function saveStorage() {
+            localStorage.setItem('ftth_pdf_planning_db', JSON.stringify(db));
+            updateDashboardStats();
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msgEl = document.getElementById('toast-msg');
+            
+            msgEl.innerText = msg;
+            icon.className = isError ? "fa-solid fa-circle-exclamation text-rose-400 text-lg" : "fa-solid fa-circle-check text-emerald-400 text-lg";
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('darkModeIcon');
+            if(html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.className = "fa-solid fa-sun";
+            } else {
+                html.classList.add('dark');
+                icon.className = "fa-solid fa-moon";
+            }
+        }
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            
+            ['dashboard', 'kabel', 'tiang', 'odc', 'odp', 'rumah', 'peta'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                if(btn) {
+                    btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-slate-300 hover:bg-slate-700/60 hover:text-white";
+                }
+            });
+
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if(activeBtn) {
+                activeBtn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition text-white bg-brand-600 shadow-md shadow-brand-600/20";
+            }
+
+            if(tabId === 'dashboard') {
+                document.getElementById('tab-dashboard').classList.add('active');
+                updateDashboardStats();
+            } else if(tabId === 'peta') {
+                document.getElementById('tab-peta').classList.add('active');
+                renderMapSimulation();
+            } else {
+                activeEntity = tabId;
+                renderTableView(tabId);
+            }
+        }
+
+        function updateDashboardStats() {
+            let totalPanjangKabel = db.kabel.reduce((acc, curr) => acc + (parseFloat(curr.panjang) || 0), 0);
+            document.getElementById('stat-kabel').innerText = `${totalPanjangKabel.toLocaleString()} m`;
+            document.getElementById('stat-tiang').innerText = `${db.tiang.length} Unit`;
+            document.getElementById('stat-odc').innerText = `${db.odc.length} Unit`;
+            document.getElementById('stat-odp').innerText = `${db.odp.length} Unit`;
+            document.getElementById('stat-rumah').innerText = `${db.rumah.length} HP`;
+
+            renderChart(totalPanjangKabel, db.tiang.length, db.odc.length, db.odp.length, db.rumah.length);
+        }
+
+        function renderChart(kabelM, tiangCt, odcCt, odpCt, rumahCt) {
+            const ctx = document.getElementById('ftthChart');
+            if(!ctx) return;
+
+            if(chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Tiang', 'ODC', 'ODP', 'Rumah (HP)'],
+                    datasets: [{
+                        label: 'Jumlah Unit',
+                        data: [tiangCt, odcCt, odpCt, rumahCt],
+                        backgroundColor: ['#f59e0b', '#10b981', '#a855f7', '#f43f5e'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function renderTableView(type) {
+            const config = componentConfig[type];
+            const container = document.getElementById('dynamic-component-container');
+            
+            container.innerHTML = `
+                <div class="tab-content active space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white">${config.title}</h2>
+                            <p class="text-sm text-slate-400">${config.desc}</p>
+                        </div>
+                        <div class="flex items-center space-x-3 self-start">
+                            <button onclick="exportSinglePDF('${type}')" class="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm shadow-rose-600/20">
+                                <i class="fa-solid fa-file-pdf text-xs"></i>
+                                <span>Export PDF</span>
+                            </button>
+                            <button onclick="openModal('${type}')" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition flex items-center space-x-2 shadow-sm shadow-brand-600/20">
+                                <i class="fa-solid fa-plus text-xs"></i>
+                                <span>Tambah Data</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search & Filter -->
+                    <div class="bg-slate-800/80 border border-slate-700/60 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="relative w-full sm:w-80">
+                            <i class="fa-solid fa-search absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                            <input type="text" id="searchInput" onkeyup="filterTable('${type}')" placeholder="Cari data..." class="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div class="text-xs text-slate-400 font-medium">
+                            Total Data: <span id="total-count-${type}" class="font-bold text-white">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-900/60 border-b border-slate-700/60 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                        <th class="px-6 py-4">No</th>
+                                        ${config.columns.map(col => `<th class="px-6 py-4">${col}</th>`).join('')}
+                                        <th class="px-6 py-4 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-700/50 text-sm text-slate-300" id="table-body-${type}">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            renderTableRows(type);
+        }
+
+        function renderTableRows(type, filteredData = null) {
+            const data = filteredData || db[type];
+            const tbody = document.getElementById(`table-body-${type}`);
+            const countEl = document.getElementById(`total-count-${type}`);
+            if(countEl) countEl.innerText = db[type].length;
+            if(!tbody) return;
+
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm">Belum ada data perencanaan. Klik tombol "Tambah Data".</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map((item, index) => {
+                let row = `<td class="px-6 py-4 font-medium text-slate-400">${index + 1}</td>`;
+                if(type === 'kabel') {
+                    row += `
+                        <td class="px-6 py-4 font-semibold text-white">${item.jenis}</td>
+                        <td class="px-6 py-4 text-brand-400 font-bold">${item.panjang} meter</td>
+                        <td class="px-6 py-4">${item.lokasi}</td>
+                    `;
+                } else if(type === 'tiang') {
+                    row += `
+                        <td class="px-6 py-4 font-semibold text-amber-400">${item.kode}</td>
+                        <td class="px-6 py-4">${item.lokasi}</td>
+                    `;
+                } else if(type === 'odc') {
+                    row += `
+                        <td class="px-6 py-4 font-semibold text-emerald-400">${item.kode}</td>
+                        <td class="px-6 py-4">${item.lokasi}</td>
+                    `;
+                } else if(type === 'odp') {
+                    row += `
+                        <td class="px-6 py-4 font-semibold text-purple-400">${item.kode}</td>
+                        <td class="px-6 py-4">${item.lokasi}</td>
+                    `;
+                } else if(type === 'rumah') {
+                    row += `
+                        <td class="px-6 py-4 font-semibold text-rose-400">${item.kode}</td>
+                        <td class="px-6 py-4">${item.lokasi}</td>
+                    `;
+                }
+
+                row += `
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <button onclick="editItem('${type}', '${item.id}')" class="text-indigo-400 hover:text-indigo-300 p-1.5 transition"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="deleteItem('${type}', '${item.id}')" class="text-rose-400 hover:text-rose-300 p-1.5 transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                return `<tr class="hover:bg-slate-700/30 transition">${row}</tr>`;
+            }).join('');
+        }
+
+        function filterTable(type) {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = db[type].filter(item => {
+                return Object.values(item).some(val => String(val).toLowerCase().includes(query));
+            });
+            renderTableRows(type, filtered);
+        }
+
+        function openModal(type, id = null) {
+            currentEditingId = id;
+            activeEntity = type;
+            const modal = document.getElementById('universal-modal');
+            const titleEl = document.getElementById('modal-title');
+            const fieldsContainer = document.getElementById('modal-fields');
+            const config = componentConfig[type];
+
+            titleEl.innerText = id ? `Edit Data ${type.toUpperCase()}` : `Tambah Data ${type.toUpperCase()}`;
+            let itemData = id ? db[type].find(i => i.id === id) || {} : {};
+
+            fieldsContainer.innerHTML = config.fields.map(field => {
+                const val = itemData[field.name] || '';
+                if(field.type === 'select') {
+                    return `
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">${field.label}</label>
+                            <select name="${field.name}" required class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <option value="">Pilih ${field.label}</option>
+                                ${field.options.map(opt => `<option value="${opt}" ${val === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">${field.label}</label>
+                            <input type="${field.type}" name="${field.name}" value="${val}" placeholder="${field.placeholder}" required class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('universal-modal').classList.add('hidden');
+            currentEditingId = null;
+            activeEntity = null;
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const newItem = { id: currentEditingId || '_' + Math.random().toString(36).substr(2, 9) };
+
+            componentConfig[activeEntity].fields.forEach(field => {
+                newItem[field.name] = formData.get(field.name);
+            });
+
+            if(currentEditingId) {
+                const index = db[activeEntity].findIndex(i => i.id === currentEditingId);
+                if(index !== -1) db[activeEntity][index] = newItem;
+                showToast("Data berhasil diperbarui!");
+            } else {
+                db[activeEntity].push(newItem);
+                showToast("Data berhasil ditambahkan!");
+            }
+
+            saveStorage();
+            closeModal();
+            renderTableView(activeEntity);
+        }
+
+        function editItem(type, id) {
+            openModal(type, id);
+        }
+
+        function deleteItem(type, id) {
+            if(confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+                db[type] = db[type].filter(i => i.id !== id);
+                saveStorage();
+                renderTableView(type);
+                showToast("Data berhasil dihapus!", true);
+            }
+        }
+
+        function renderMapSimulation() {
+            const container = document.getElementById('map-pin-container');
+            if(!container) return;
+
+            let allPins = [];
+            db.odc.forEach(i => allPins.push({ type: 'ODC', label: i.kode, loc: i.lokasi, color: 'bg-emerald-500', icon: 'fa-server' }));
+            db.odp.forEach(i => allPins.push({ type: 'ODP', label: i.kode, loc: i.lokasi, color: 'bg-purple-500', icon: 'fa-box' }));
+            db.tiang.forEach(i => allPins.push({ type: 'Tiang', label: i.kode, loc: i.lokasi, color: 'bg-amber-500', icon: 'fa-grip-lines-vertical' }));
+            db.rumah.forEach(i => allPins.push({ type: 'Rumah', label: i.kode, loc: i.lokasi, color: 'bg-rose-500', icon: 'fa-house' }));
+
+            if(allPins.length === 0) {
+                container.innerHTML = `<div class="text-center text-slate-500 text-sm">Belum ada data infrastruktur untuk ditampilkan.</div>`;
+                return;
+            }
+
+            container.innerHTML = allPins.map(pin => `
+                <div class="bg-slate-800 border border-slate-700 p-3 rounded-xl shadow-sm flex items-center space-x-3 w-64 transform hover:scale-105 transition">
+                    <div class="${pin.color} text-white w-9 h-9 rounded-lg flex items-center justify-center shrink-0">
+                        <i class="fa-solid ${pin.icon} text-sm"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${pin.type}</span>
+                        <h4 class="text-xs font-bold text-white truncate">${pin.label}</h4>
+                        <p class="text-[11px] text-slate-400 truncate">${pin.loc}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // PDF EXPORT FUNCTIONS (jsPDF & autoTable)
+        // ==========================================
+
+        function exportSinglePDF(type) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const config = componentConfig[type];
+
+            // Header Dokumen
+            doc.setFontSize(18);
+            doc.setTextColor(79, 70, 229);
+            doc.text(`Laporan Perencanaan ${config.title.replace('Data Perencanaan ', '')}`, 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}`, 14, 28);
+            doc.text(`Total Unit Tercatat: ${db[type].length} item`, 14, 34);
+
+            // Mapping Data untuk autoTable
+            let tableData = db[type].map((item, index) => {
+                if(type === 'kabel') {
+                    return [index + 1, item.jenis, `${item.panjang} meter`, item.lokasi];
+                } else if(type === 'tiang') {
+                    return [index + 1, item.kode, item.lokasi];
+                } else if(type === 'odc') {
+                    return [index + 1, item.kode, item.lokasi];
+                } else if(type === 'odp') {
+                    return [index + 1, item.kode, item.lokasi];
+                } else if(type === 'rumah') {
+                    return [index + 1, item.kode, item.lokasi];
+                }
+            });
+
+            let headColumns = [['No', ...config.columns]];
+
+            doc.autoTable({
+                startY: 42,
+                head: headColumns,
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+                styles: { fontSize: 10, cellPadding: 4 }
+            });
+
+            doc.save(`Laporan_${type.toUpperCase()}_${new Date().toISOString().slice(0,10)}.pdf`);
+            showToast(`PDF ${type.toUpperCase()} berhasil diunduh!`);
+        }
+
+        function exportAllPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cover Title
+            doc.setFontSize(20);
+            doc.setTextColor(79, 70, 229);
+            doc.text("Laporan Rekapitulasi Perencanaan FTTH", 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}`, 14, 28);
+            
+            let totalPanjang = db.kabel.reduce((acc, curr) => acc + (parseFloat(curr.panjang) || 0), 0);
+            doc.text(`Ringkasan: Kabel (${totalPanjang}m), Tiang (${db.tiang.length}), ODC (${db.odc.length}), ODP (${db.odp.length}), Rumah (${db.rumah.length})`, 14, 34);
+
+            let currentY = 44;
+
+            const entities = [
+                { key: 'kabel', title: '1. Data Perencanaan Kabel', cols: ['No', 'Jenis Kabel', 'Panjang (m)', 'Lokasi / Rute'] },
+                { key: 'tiang', title: '2. Data Perencanaan Tiang', cols: ['No', 'Kode Tiang', 'Lokasi Tiang'] },
+                { key: 'odc', title: '3. Data Perencanaan ODC', cols: ['No', 'Kode ODC', 'Lokasi ODC'] },
+                { key: 'odp', title: '4. Data Perencanaan ODP', cols: ['No', 'Kode ODP', 'Lokasi ODP'] },
+                { key: 'rumah', title: '5. Data Perencanaan Rumah (Homepass)', cols: ['No', 'Kode Rumah / Pelanggan', 'Lokasi Rumah'] }
+            ];
+
+            entities.forEach((ent, idx) => {
+                if(db[ent.key].length > 0) {
+                    if(currentY > 250) {
+                        doc.addPage();
+                        currentY = 20;
+                    }
+
+                    doc.setFontSize(12);
+                    doc.setTextColor(50, 50, 50);
+                    doc.text(ent.title, 14, currentY);
+                    currentY += 4;
+
+                    let rows = db[ent.key].map((item, index) => {
+                        if(ent.key === 'kabel') return [index + 1, item.jenis, `${item.panjang} m`, item.lokasi];
+                        if(ent.key === 'tiang') return [index + 1, item.kode, item.lokasi];
+                        if(ent.key === 'odc') return [index + 1, item.kode, item.lokasi];
+                        if(ent.key === 'odp') return [index + 1, item.kode, item.lokasi];
+                        if(ent.key === 'rumah') return [index + 1, item.kode, item.lokasi];
+                    });
+
+                    doc.autoTable({
+                        startY: currentY + 2,
+                        head: [ent.cols],
+                        body: rows,
+                        theme: 'grid',
+                        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+                        styles: { fontSize: 9, cellPadding: 3 }
+                    });
+
+                    currentY = doc.lastAutoTable.finalY + 10;
+                }
+            });
+
+            doc.save(`Rekap_Lengkap_FTTH_${new Date().toISOString().slice(0,10)}.pdf`);
+            showToast("Rekapitulasi PDF lengkap berhasil diunduh!");
+        }
+
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `ftth_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+            showToast("Backup JSON berhasil diexport!");
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(imported.kabel && imported.tiang && imported.odc && imported.odp && imported.rumah) {
+                        db = imported;
+                        saveStorage();
+                        if(activeTab === 'dashboard') updateDashboardStats();
+                        else if(activeTab === 'peta') renderMapSimulation();
+                        else renderTableView(activeTab);
+                        showToast("Data berhasil diimport!");
+                    } else {
+                        showToast("Format file JSON tidak valid!", true);
+                    }
+                } catch(err) {
+                    showToast("Gagal membaca file backup!", true);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Inisialisasi saat window load
+        window.onload = function() {
+            updateDashboardStats();
+        };
+    </script>
+</body>
+</html>
+```
+eof
